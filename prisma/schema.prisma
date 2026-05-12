@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Leads / Pipeline ─────────────────────────────────────────────────────────
+
+model Lead {
+  id       String @id @default(cuid())
+  deviceId String
+
+  name    String
+  company String     @default("")
+  status  LeadStatus @default(Identified)
+  notes   String     @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deviceId])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  Identified
+  Messaged
+  Replied
+  CallBooked    @map("Call Booked")
+  ProposalSent  @map("Proposal Sent")
+  ClientWon     @map("Client Won")
+  NotInterested @map("Not Interested")
+}
+
+// ─── Daily Task Completions ───────────────────────────────────────────────────
+
+model DailyCompletion {
+  id       String @id @default(cuid())
+  deviceId String
+
+  date          String   // YYYY-MM-DD
+  outreach      Boolean  @default(false)
+  logReplies    Boolean  @default(false) @map("log_replies")
+  followUp      Boolean  @default(false) @map("follow_up")
+  linkedin      Boolean  @default(false)
+  updateTracker Boolean  @default(false) @map("update_tracker")
+  completedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([deviceId, date])
+  @@index([deviceId])
+  @@map("daily_completions")
+}
+
+// ─── Streak ───────────────────────────────────────────────────────────────────
+
+model StreakData {
+  id                String @id @default(cuid())
+  deviceId          String @unique
+  current           Int    @default(0)
+  longest           Int    @default(0)
+  lastCompletedDate String @default("")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("streak_data")
+}
+
+// ─── Pause ────────────────────────────────────────────────────────────────────
+
+model PauseState {
+  id       String @id @default(cuid())
+  deviceId String @unique
+
+  active   Boolean     @default(false)
+  reason   PauseReason @default(other)
+  until    String      @default("")
+  loggedAt String      @default("")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("pause_states")
+}
+
+model PauseLog {
+  id       String @id @default(cuid())
+  deviceId String
+
+  active   Boolean
+  reason   PauseReason
+  until    String
+  loggedAt String
+
+  createdAt DateTime @default(now())
+
+  @@index([deviceId])
+  @@map("pause_log")
+}
+
+enum PauseReason {
+  new_client
+  project_delivery
+  travel
+  other
+}
+
+// ─── Notification Settings ────────────────────────────────────────────────────
+
+model NotificationSettings {
+  id          String  @id @default(cuid())
+  deviceId    String  @unique
+  morningTime String  @default("08:00")
+  eveningTime String  @default("19:00")
+  enabled     Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+
+model OnboardingState {
+  id          String    @id @default(cuid())
+  deviceId    String    @unique
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("onboarding_state")
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getItem, setItem, KEYS } from '@/lib/storage'
+import { getDeviceId } from '@/lib/deviceId'
 import { COPY } from '@/lib/copy'
 import type { NotificationSettings } from '@/types'
 
@@ -46,11 +47,22 @@ export function useNotifications(completionPct: number, streakCount: number) {
   const [permission, setPermission] = useState<NotificationPermission>('default')
 
   useEffect(() => {
-    const stored = getItem<NotificationSettings>(KEYS.NOTIFICATIONS) ?? DEFAULT_SETTINGS
-    setSettings(stored)
+    const cached = getItem<NotificationSettings>(KEYS.NOTIFICATIONS) ?? DEFAULT_SETTINGS
+    setSettings(cached)
+
     if (typeof Notification !== 'undefined') {
       setPermission(Notification.permission)
     }
+
+    // Sync from DB
+    const deviceId = getDeviceId()
+    fetch(`/api/settings/notifications?deviceId=${deviceId}`)
+      .then((r) => r.json())
+      .then((data: NotificationSettings) => {
+        setSettings(data)
+        setItem(KEYS.NOTIFICATIONS, data)
+      })
+      .catch(() => {})
   }, [])
 
   const requestPermission = useCallback(async () => {
@@ -58,21 +70,29 @@ export function useNotifications(completionPct: number, streakCount: number) {
     const result = await Notification.requestPermission()
     setPermission(result)
     if (result === 'granted') {
-      const updated = { ...settings, enabled: true }
-      setSettings(updated)
-      setItem(KEYS.NOTIFICATIONS, updated)
+      await updateSettings({ enabled: true })
     }
-  }, [settings])
+  }, [settings]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateSettings = useCallback((updates: Partial<NotificationSettings>) => {
+  const updateSettings = useCallback(async (updates: Partial<NotificationSettings>) => {
     const updated = { ...settings, ...updates }
     setSettings(updated)
     setItem(KEYS.NOTIFICATIONS, updated)
+
+    const deviceId = getDeviceId()
+    try {
+      await fetch('/api/settings/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, ...updates }),
+      })
+    } catch {
+      // Optimistic already applied
+    }
   }, [settings])
 
   useEffect(() => {
     if (!settings.enabled || permission !== 'granted') return
-
     const daysLeft = daysUntilJan2027()
     const day = dayNumber()
 
@@ -80,11 +100,7 @@ export function useNotifications(completionPct: number, streakCount: number) {
     const eveningMs = msUntilTime(settings.eveningTime)
 
     const morningTimer = setTimeout(() => {
-      scheduleNotification(
-        'PIPELINE',
-        COPY.notifications.morning(day, daysLeft),
-        0
-      )
+      scheduleNotification('PIPELINE', COPY.notifications.morning(day, daysLeft), 0)
     }, morningMs)
 
     const eveningTimer = setTimeout(() => {
