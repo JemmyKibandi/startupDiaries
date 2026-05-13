@@ -121,7 +121,7 @@ export default function HomePage() {
   const streak = useStreak()
   const { isPaused, activatePause, deactivatePause, pause } = usePause()
   const { completionPct } = useTasks()
-  const { permission, requestPermission } = useNotifications(completionPct, streak.current)
+  const { requestPermission } = useNotifications(completionPct, streak.current)
 
   useEffect(() => {
     setMounted(true)
@@ -133,6 +133,7 @@ export default function HomePage() {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       setTimeout(requestPermission, 3000)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const completeOnboarding = () => {

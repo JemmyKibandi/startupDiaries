@@ -1,10 +1,9 @@
 import { PrismaClient } from '../lib/generated/prisma/index.js'
 import { PrismaNeonHttp } from '@prisma/adapter-neon'
 
-const CONN =
-  'postgresql://neondb_owner:npg_XvAK0uc2yVfo@ep-round-forest-ap70nc6o-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require'
+const CONN = process.env.DATABASE_URL
+if (!CONN) throw new Error('DATABASE_URL is not set — add it to .env.local')
 
-// Prisma 7: PrismaNeonHttp takes the connection string directly
 const adapter = new PrismaNeonHttp(CONN)
 const db = new PrismaClient({ adapter })
 

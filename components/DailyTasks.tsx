@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import type { TaskId, DailyCompletion } from '@/types'
+import type { TaskId } from '@/types'
 import { COPY } from '@/lib/copy'
 import { useTasks } from '@/hooks/useTasks'
 
@@ -164,7 +164,7 @@ export default function DailyTasks({ isPaused }: Props) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="font-serif text-2xl italic text-white">Today's Tasks</h2>
+          <h2 className="font-serif text-2xl italic text-white">Today&apos;s Tasks</h2>
           <p className="font-mono text-xs text-muted mt-0.5">
             {completedCount} of {taskIds.length} done
           </p>
@@ -207,7 +207,7 @@ export default function DailyTasks({ isPaused }: Props) {
           className="text-center font-mono text-sm tracking-widest uppercase animate-fade-in"
           style={{ color: '#00ff88' }}
         >
-          All done. That's how it's done.
+          All done. That&apos;s how it&apos;s done.
         </div>
       )}
     </div>

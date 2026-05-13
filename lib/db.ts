@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createClient(): PrismaClient {
-  const adapter = new PrismaNeonHttp(process.env.DATABASE_URL!)
+  const adapter = new PrismaNeonHttp(process.env.DATABASE_URL!, {})
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
