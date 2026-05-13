@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getItem, setItem, KEYS } from '@/lib/storage'
+import { getDeviceId } from '@/lib/deviceId'
 import type { Lead, LeadStatus } from '@/types'
 
 function uuid(): string {
@@ -10,38 +11,84 @@ function uuid(): string {
 
 export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [synced, setSynced] = useState(false)
 
+  // Load from localStorage immediately, then sync from DB
   useEffect(() => {
-    setLeads(getItem<Lead[]>(KEYS.LEADS) ?? [])
+    const cached = getItem<Lead[]>(KEYS.LEADS) ?? []
+    setLeads(cached)
+
+    const deviceId = getDeviceId()
+    fetch(`/api/leads?deviceId=${deviceId}`)
+      .then((r) => r.json())
+      .then((data: Lead[]) => {
+        setLeads(data)
+        setItem(KEYS.LEADS, data)
+        setSynced(true)
+      })
+      .catch(() => setSynced(true)) // fall back to cache on network error
   }, [])
 
+  // Persist optimistically to localStorage + sync to DB
   const persist = useCallback((updated: Lead[]) => {
     setLeads(updated)
     setItem(KEYS.LEADS, updated)
   }, [])
 
   const addLead = useCallback(
-    (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => {
+    async (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => {
+      // Optimistic local insert
       const now = new Date().toISOString()
-      const lead: Lead = { ...data, id: uuid(), createdAt: now, updatedAt: now }
-      persist([lead, ...leads])
+      const tempLead: Lead = { ...data, id: uuid(), createdAt: now, updatedAt: now }
+      const optimistic = [tempLead, ...leads]
+      persist(optimistic)
+
+      const deviceId = getDeviceId()
+      try {
+        const res = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, deviceId }),
+        })
+        const created: Lead = await res.json()
+        // Replace temp with real DB record
+        const final = optimistic.map((l) => (l.id === tempLead.id ? created : l))
+        persist(final)
+      } catch {
+        // Keep optimistic version if offline
+      }
     },
     [leads, persist]
   )
 
   const updateLead = useCallback(
-    (id: string, data: Partial<Omit<Lead, 'id' | 'createdAt'>>) => {
+    async (id: string, data: Partial<Omit<Lead, 'id' | 'createdAt'>>) => {
       const updated = leads.map((l) =>
         l.id === id ? { ...l, ...data, updatedAt: new Date().toISOString() } : l
       )
       persist(updated)
+
+      try {
+        await fetch(`/api/leads/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+      } catch {
+        // Keep optimistic version
+      }
     },
     [leads, persist]
   )
 
   const deleteLead = useCallback(
-    (id: string) => {
+    async (id: string) => {
       persist(leads.filter((l) => l.id !== id))
+      try {
+        await fetch(`/api/leads/${id}`, { method: 'DELETE' })
+      } catch {
+        // Keep optimistic delete
+      }
     },
     [leads, persist]
   )
@@ -61,5 +108,5 @@ export function useLeads() {
     ).length,
   }
 
-  return { leads, addLead, updateLead, deleteLead, updateStatus, stats }
+  return { leads, addLead, updateLead, deleteLead, updateStatus, stats, synced }
 }

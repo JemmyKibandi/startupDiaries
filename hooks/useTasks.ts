@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getItem, setItem, KEYS } from '@/lib/storage'
+import { getDeviceId } from '@/lib/deviceId'
 import type { DailyCompletion, TaskId } from '@/types'
 
 const TASK_IDS: TaskId[] = ['outreach', 'log_replies', 'follow_up', 'linkedin', 'update_tracker']
@@ -19,21 +20,30 @@ export function useTasks() {
   const [history, setHistory] = useState<DailyCompletion[]>([])
 
   useEffect(() => {
-    const stored = getItem<DailyCompletion[]>(KEYS.COMPLETIONS) ?? []
-    setHistory(stored)
-
     const date = todayISO()
-    const existing = stored.find((d) => d.date === date)
-    if (existing) {
-      setToday(existing)
-    } else {
-      const fresh: DailyCompletion = { date, tasks: emptyTasks() }
-      setToday(fresh)
-    }
+    // Optimistic: load from cache immediately
+    const cached = getItem<DailyCompletion[]>(KEYS.COMPLETIONS) ?? []
+    setHistory(cached)
+    const cachedToday = cached.find((d) => d.date === date)
+    setToday(cachedToday ?? { date, tasks: emptyTasks() })
+
+    // Sync from DB
+    const deviceId = getDeviceId()
+    Promise.all([
+      fetch(`/api/tasks?deviceId=${deviceId}&date=${date}`).then((r) => r.json()),
+      fetch(`/api/tasks/history?deviceId=${deviceId}`).then((r) => r.json()),
+    ])
+      .then(([todayData, historyData]: [DailyCompletion, DailyCompletion[]]) => {
+        setToday(todayData)
+        setHistory(historyData)
+        // Update cache
+        setItem(KEYS.COMPLETIONS, historyData)
+      })
+      .catch(() => {}) // keep cached values on network error
   }, [])
 
   const toggle = useCallback(
-    (taskId: TaskId) => {
+    async (taskId: TaskId) => {
       if (!today) return
 
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -50,17 +60,26 @@ export function useTasks() {
         updated.completedAt = new Date().toISOString()
       }
 
+      // Optimistic update
       setToday(updated)
+      const cached = getItem<DailyCompletion[]>(KEYS.COMPLETIONS) ?? []
+      const idx = cached.findIndex((d) => d.date === updated.date)
+      if (idx >= 0) cached[idx] = updated
+      else cached.push(updated)
+      setItem(KEYS.COMPLETIONS, cached)
+      setHistory([...cached])
 
-      const stored = getItem<DailyCompletion[]>(KEYS.COMPLETIONS) ?? []
-      const idx = stored.findIndex((d) => d.date === updated.date)
-      if (idx >= 0) {
-        stored[idx] = updated
-      } else {
-        stored.push(updated)
+      // Sync to DB
+      const deviceId = getDeviceId()
+      try {
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId, ...updated }),
+        })
+      } catch {
+        // Optimistic version already saved to localStorage
       }
-      setItem(KEYS.COMPLETIONS, stored)
-      setHistory([...stored])
     },
     [today]
   )
