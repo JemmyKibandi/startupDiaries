@@ -2,7 +2,7 @@
   "extends": ["next/core-web-vitals"],
   "ignorePatterns": ["lib/generated/**", "public/sw.js", "public/workbox-*.js"],
   "rules": {
-    "no-unused-vars": "warn",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     "no-explicit-any": "off"
   }
 }
