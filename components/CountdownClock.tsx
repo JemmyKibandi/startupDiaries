@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
 function daysUntil(target: Date): number {
   const now = new Date()
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function CountdownClock({ targetDate }: Props) {
-  const target = new Date(targetDate)
+  const target = useMemo(() => new Date(targetDate), [targetDate])
   const [days, setDays] = useState(daysUntil(target))
   const [displayed, setDisplayed] = useState(0)
   const animRef = useRef<number | null>(null)
@@ -25,7 +25,7 @@ export default function CountdownClock({ targetDate }: Props) {
       setDays(daysUntil(target))
     }, 60000)
     return () => clearInterval(interval)
-  }, [])
+  }, [target])
 
   // Count-up animation on mount
   useEffect(() => {

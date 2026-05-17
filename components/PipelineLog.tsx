@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<LeadStatus, string> = {
 }
 
 interface AddFormProps {
-  onAdd: (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => void
+  onAdd: (_data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) => void
 }
 
 function AddForm({ onAdd }: AddFormProps) {
@@ -124,8 +124,8 @@ function AddForm({ onAdd }: AddFormProps) {
 
 interface LeadCardProps {
   lead: Lead
-  onDelete: (id: string) => void
-  onStatusChange: (id: string, status: LeadStatus) => void
+  onDelete: (_id: string) => void
+  onStatusChange: (_id: string, _status: LeadStatus) => void
 }
 
 function LeadCard({ lead, onDelete, onStatusChange }: LeadCardProps) {

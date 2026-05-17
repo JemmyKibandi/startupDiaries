@@ -5,7 +5,7 @@ import type { PauseReason } from '@/types'
 import { COPY } from '@/lib/copy'
 
 interface Props {
-  onConfirm: (reason: PauseReason, until: string) => void
+  onConfirm: (_reason: PauseReason, _until: string) => void
   onCancel: () => void
 }
 
